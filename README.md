@@ -43,3 +43,7 @@ Persistence is **local-only** (IndexedDB + localStorage). No accounts, no cloud 
 ## Languages
 
 `English` and `中文` are wired up in `lib/languages.ts`. Add more entries to that file to expand the picker.
+
+## License
+
+[MIT](./LICENSE)
