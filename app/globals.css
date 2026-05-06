@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fff8e7;
+  --foreground: #1a1330;
+  --sunshine: #ffd93d;
+  --coral: #ff6b6b;
+  --mint: #6bcb77;
+  --sky: #4d96ff;
+  --berry: #c44dff;
+  --cream: #fff8e7;
+  --ink: #1a1330;
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sunshine: var(--sunshine);
+  --color-coral: var(--coral);
+  --color-mint: var(--mint);
+  --color-sky: var(--sky);
+  --color-berry: var(--berry);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+@keyframes blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 30px) scale(0.95); }
+}
+
+.animate-blob {
+  animation: blob 14s ease-in-out infinite;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.flip-perspective {
+  perspective: 1200px;
+}
+.flip-card {
+  transform-style: preserve-3d;
+}
+.flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+.pb-safe {
+  padding-bottom: max(0.5rem, var(--safe-bottom));
+}
+.pt-safe {
+  padding-top: max(0.5rem, var(--safe-top));
+}
