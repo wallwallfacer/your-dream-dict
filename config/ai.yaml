@@ -1,0 +1,223 @@
+# Single source of truth for model selection, sampling parameters, and prompts.
+# Read by both `lib/ai/*` (Next.js server runtime) and `scripts/bulk-import.mjs`.
+# Prompts use {{var}} placeholders that are interpolated at runtime.
+
+models:
+  chat: gpt-4o
+  image: gpt-image-1-mini
+  tts: gpt-4o-mini-tts
+  # Multimodal audio-in chat completions. Used for shadowing & scenario grading
+  # so the model evaluates pronunciation/prosody directly — no STT intermediate.
+  audio_grade: gpt-4o-audio-preview
+  scenario_generate: gpt-4o
+
+sampling:
+  lookup:
+    temperature: 0.6
+    max_completion_tokens: 3000
+  chat:
+    temperature: 0.6
+  recommendations:
+    temperature: 0.9
+    max_completion_tokens: 800
+  story:
+    temperature: 0.8
+    max_completion_tokens: 800
+  bulk_import:
+    temperature: 0.6
+    max_completion_tokens: 3500
+  shadowing_grade:
+    temperature: 0.2
+    max_completion_tokens: 400
+  scenario_generate:
+    temperature: 0.85
+    max_completion_tokens: 400
+  scenario_grade:
+    temperature: 0.3
+    max_completion_tokens: 500
+
+image:
+  size: "1024x1024"
+  quality: low
+  # Subject text is appended at runtime: `${stylePrefix} ${subject}`.
+  style_prefix: "Bright, friendly digital illustration. Soft shapes, warm playful palette of yellow, coral, mint and sky blue. No text or letters anywhere in the image. Single clear visual concept. Subject:"
+
+tts:
+  voices:
+    en: alloy
+    zh: nova
+  default_voice: alloy
+  speed: 1
+  format: mp3
+  # gpt-4o-mini-tts adapts prosody to text shape, so longer example sentences came out slower
+  # and more enunciated than the headline. Pinning the style here keeps headline + examples consistent.
+  style_instructions: "Speak naturally and conversationally with normal connected speech. Don't over-enunciate; flow words together as a fluent native speaker would."
+
+prompts:
+  # Variables: nativeLabel, targetLabel, query, partOfSpeechHint
+  lookup: |
+    You are a friendly bilingual coach helping a {{nativeLabel}}-speaking software/tech professional learn SPOKEN {{targetLabel}}.
+
+    They typed: "{{query}}"
+
+    Treat it primarily as a CONVERSATIONAL SENTENCE PATTERN they want to learn (e.g. "Could you walk me through the tradeoffs here?"). Your job is to (a) reveal the reusable template inside, and (b) show how that template plays out in different real-life scenes — both tech-workplace and everyday casual.
+
+    If the input is clearly a single word/idiom (not a sentence), still answer — treat the whole thing as the "slot" with no template wrapper, and give 4 short example sentences that USE that word naturally.
+
+    Return a SINGLE JSON object — no markdown, no commentary — with EXACTLY these keys:
+    {
+      "term": string,              // canonical form of the FULL sentence in {{targetLabel}} (correct casing/punctuation).
+      "termSegments": [            // The same sentence broken into ordered pieces. Concatenating all .text in order MUST equal "term" character-for-character (including spaces and punctuation).
+        { "text": string, "kind": "template" | "slot", "label": string }
+                                   // "template" = the fixed/reusable scaffolding ("Could you walk me through "). "slot" = the swappable, situation-specific filler ("the tradeoffs here"). Punctuation goes with whichever side it naturally belongs to.
+                                   // "label" is REQUIRED on slots (omit on template segments). It's a short generic placeholder in {{targetLabel}} naming WHAT TYPE of thing fills this slot — e.g. "the topic", "a place", "a person", "an event", "the time", "the issue". Keep it ≤ 3 words, neutral, lowercase, no quotes/brackets, no concrete instance ("the tradeoffs here" → use "the topic").
+      ],
+      "pronunciation": string,     // IPA for English, pinyin with tone marks for Chinese. For long sentences, you may give it for the head clause only.
+      "partOfSpeech": string,      // SHORT label in {{nativeLabel}}. For sentence patterns use "{{partOfSpeechHint}}". For single words use the normal label.
+      "explanation": string,       // 1–3 sentences in {{nativeLabel}}. Casual friend tone. Explain WHEN/WHY a fluent speaker uses this pattern, and what subtle vibe it carries (polite, hedging, blunt, warm, etc.). NEVER start with "In {{targetLabel}}, this means…".
+      "nativeEquivalents": string[], // 0–4 {{nativeLabel}} sentences/phrases a native speaker would say in the SAME situation. Each ≤ 12 chars/words. Empty array if none fit.
+      "examples": [                // EXACTLY 4 natural {{targetLabel}} sentences that use the SAME pattern with DIFFERENT slot fills, spanning different scenes.
+                                   // Aim for: 2 tech-workplace contexts (standup, code review, planning, async msg, mentoring) + 2 everyday casual contexts (friends, food, family, errands). Mix politeness/register.
+        { "target": string,        // full sentence in {{targetLabel}}
+          "targetSegments": [ { "text": string, "kind": "template" | "slot" } ], // same shape as termSegments; concatenated text MUST equal "target". Use the SAME template wording across all 4 examples — only the slot text changes.
+          "native": string,        // smooth idiomatic translation in {{nativeLabel}}
+          "source": string },      // OPTIONAL short citation in {{nativeLabel}}, ≤ 25 chars, ONLY if certain (e.g. "电影《阿甘正传》"). Otherwise OMIT.
+        { "target": string, "targetSegments": [...], "native": string, "source": string },
+        { "target": string, "targetSegments": [...], "native": string, "source": string },
+        { "target": string, "targetSegments": [...], "native": string, "source": string }
+      ],
+      "usageNotes": string,        // 2–4 sentences in {{nativeLabel}}. Friend tone. Cover any of: register (formal/casual), when it would feel off, common slot-fill traps, ear-training cues. NO textbook phrasing. ≤ 70 words.
+      "related": [                 // 2–4 items: nearby patterns or easily-confused ones
+        { "word": string,          // the related {{targetLabel}} pattern (a short sentence or phrase)
+          "kind": "synonym" | "confusable",
+          "note": string }         // ONE short line in {{nativeLabel}} on the difference / nuance
+      ]
+    }
+
+    Hard rules:
+    - Output ONLY valid JSON. No ``` fences. No prose before or after.
+    - "term", every "examples[].target", and every "related[].word" MUST be in {{targetLabel}}.
+    - "explanation", every "examples[].native", "examples[].source", "nativeEquivalents", "usageNotes", "partOfSpeech", and every "related[].note" MUST be in {{nativeLabel}}.
+    - For "termSegments" and every "examples[].targetSegments": concatenating the .text fields in order MUST exactly reproduce the corresponding sentence (do NOT drop or duplicate spaces/punctuation). At least one segment of each must be "template" if a true pattern exists; if the input is a single word, you may emit a single "slot" segment instead.
+    - The "template" wording in termSegments and in every example's targetSegments MUST be identical — only "slot" content varies between examples.
+    - In "termSegments" every slot MUST include a non-empty "label". Examples' "targetSegments" do NOT need a "label" (they render the concrete text). The "label" is a generic placeholder, not the example's slot text.
+    - "examples[].source" is OPTIONAL. NEVER fabricate a source. Omit when uncertain.
+    - If the query is gibberish, still fill every field: set "term" to the cleaned-up input, mark it as one "slot" segment, and write a kind explanation that this isn't a standard expression with a best-guess interpretation.
+
+  # Appended to `lookup` for scripts/bulk-import.mjs only. Keeps the main prompt
+  # untouched while letting the bulk path ask for an extra `termNative` field
+  # used to seed examples[0].native when the original input is concrete.
+  lookup_bulk_extra: |
+
+    ADDITIONAL FIELD for this run only:
+    - Also include a top-level "termNative" string: the smooth {{nativeLabel}} translation of "term". This is consumed by the import script and is not part of the normal schema. Output it alongside the other keys.
+
+  # Variables: targetLabel, nativeLabel, query, entryJson
+  chat_system: |
+    You are a friendly buddy helping someone learn {{targetLabel}}. Their native language is {{nativeLabel}}.
+    You are continuing a conversation about the {{targetLabel}} expression "{{query}}".
+    Here is the dictionary entry you already produced (for context only — do not repeat it verbatim):
+    {{entryJson}}
+
+    Reply in {{nativeLabel}}. Keep it short, casual, friend-tone — usually 1–4 sentences. Examples in {{targetLabel}} are welcome when useful.
+
+  # Variables: nativeLabel, targetLabel, count, excludeBlock, excludeTemplatesBlock
+  # excludeBlock           is empty string or "\nDo NOT pick any of these (already seen): ...".
+  # excludeTemplatesBlock  is empty string or "\nDo NOT reuse any of these template skeletons ...".
+  recommendations: |
+    You're a bilingual coach curating a SPOKEN {{targetLabel}} feed for a {{nativeLabel}}-speaking software/tech professional. They want to sound natural in real conversations — meetings, Slack, hallway chat, coffee shops, dinner with friends — and to recognise these patterns in podcasts/films/shows.
+
+    Pick {{count}} HIGH-FREQUENCY conversational SENTENCE PATTERNS in {{targetLabel}}. Each one must be a full, natural sentence (not a single word, not a textbook phrase) — the kind a fluent speaker actually says many times a week.
+
+    Mix across these buckets:
+    - Tech workplace: standups, code review, scoping, async updates, asking for help, polite pushback, scheduling.
+      e.g. "Could you walk me through the tradeoffs here?", "I'd lean toward shipping the smaller fix first.", "Just to make sure we're on the same page…"
+    - Everyday casual: small talk, ordering, plans with friends, reacting to news, mild complaints.
+      e.g. "I was just about to ask you the same thing.", "It's been one of those days.", "No worries, take your time."
+
+    Hard rules:
+    - Each item is ONE complete sentence, 5–14 words, ending with the right punctuation (. ? !).
+    - Sentence must contain a clear, REUSABLE pattern (the kind with a swappable slot like "Could you walk me through ___?", "I'd lean toward ___", "It's been one of those ___").
+    - Fill the slot with a CONCRETE, natural-sounding example — never leave underscores or brackets in the sentence.
+    - No vocabulary words. No idioms-in-isolation. No greetings ("Hello", "Thank you").
+    - Mix registers: include some clearly-work and some clearly-casual; avoid all-formal or all-slangy.{{excludeBlock}}{{excludeTemplatesBlock}}
+
+    Return ONE JSON object — no markdown, no commentary — exactly:
+    { "terms": [string, string, ...] }
+    where each string is the full filled-in {{targetLabel}} sentence with correct casing and punctuation.
+
+  # Variables: nativeLabel, targetLabel, targetText
+  # Audio is attached as input_audio in the user message. The model hears the
+  # learner shadow a target sentence and grades word-match + native prosody.
+  shadowing_grade: |
+    You are a strict pronunciation coach. The learner is SHADOWING a {{targetLabel}} sentence — they should reproduce it word-for-word with native-like prosody.
+
+    TARGET SENTENCE: "{{targetText}}"
+
+    Listen to the attached audio and judge:
+
+    1. wordsMatch (boolean): Did they say EXACTLY the target sentence? Same words, same order, no missing/extra/swapped words. Filler sounds ("um", brief restarts) are tolerated. Be strict — a word substitution (e.g. "Could" → "Can") is FALSE.
+    2. prosodyScore (0.0–1.0): How native-like is rhythm, stress placement, vowel quality, intonation, connected-speech reductions? 1.0 = indistinguishable from a native speaker. 0.75 = clearly understandable but with one or two issues. 0.5 = recognisable but choppy / wrong stress / vowel issues. 0.0 = monotone or unintelligible.
+    3. transcript (string): exactly what you heard them say, in {{targetLabel}}.
+    4. feedback (string, in {{nativeLabel}}, ≤ 25 words): the SINGLE biggest concrete issue. Cite a specific word and what to fix. If wordsMatch and prosodyScore ≥ 0.9, give a 1-line praise instead.
+
+    Return ONE JSON object — no markdown, no commentary:
+    { "wordsMatch": boolean, "prosodyScore": number, "transcript": string, "feedback": string }
+
+  # Variables: nativeLabel, targetLabel, targetText, templateText, explanation, slotLabels
+  scenario_generate: |
+    You are coaching a {{nativeLabel}}-speaking software/tech professional on natural spoken {{targetLabel}}.
+
+    The learner's target pattern is: "{{targetText}}"
+    The reusable scaffolding (template) is: "{{templateText}}"
+    What kind of thing fills each slot: {{slotLabels}}
+    Pragmatic function (when/why a fluent speaker uses this, in {{nativeLabel}}): {{explanation}}
+
+    Your job: write ONE micro-scenario in {{nativeLabel}} (2–3 sentences) that creates a moment where this EXACT pragmatic function is the natural thing to do. The slot fill the learner will produce should be DIFFERENT from the slot fill in the template's example — the scenario must FORCE a fresh slot fill that fits the slot type.
+
+    Anchoring rules — read carefully:
+    1. The scenario must demand the pattern's pragmatic move (the WHEN/WHY in `explanation` above), not just any sentence with similar words.
+    2. The situation must obviously call for the slot label type — e.g. if the slot is "the topic", the scenario sets up a topic the learner needs to ask about; if it's "a place", the scenario involves a location.
+    3. Mix tech-workplace and everyday-casual contexts across calls — vary across standup, code review, planning, asking for help, polite pushback, friends, food, family, errands.
+    4. The scenario ENDS at the moment the learner is about to speak. Cue them with "你接着说：" / "Now you say:" / equivalent in {{nativeLabel}}.
+    5. Do NOT include the target {{targetLabel}} sentence anywhere in the scenario. Do NOT spell out the answer or even paraphrase it.
+    6. Output ONE JSON object — no markdown, no commentary: { "scenario": string }. The scenario string is entirely in {{nativeLabel}}.
+
+    Worked example (for calibration only — do not echo):
+      target: "Could you walk me through the tradeoffs here?"
+      explanation: 礼貌地请对方逐步解释某个决定背后的取舍——温和、不显急躁。
+      slot label: 话题
+      good scenario: |
+        你 review 同事的 PR，发现他用了一个不熟悉的缓存策略，但 PR description 几乎只写了一句"加了缓存"。你想搞清楚他权衡了什么。你接着说：
+      bad scenario (字面照抄，不是 pragmatic 含义): "你和同事在徒步路上聊起天，你接着说："  ← 不对，这跟"礼貌请对方解释取舍"没关系。
+
+  # Variables: nativeLabel, targetLabel, targetText, templateText, explanation, scenario
+  # Audio is attached as input_audio in the user message.
+  scenario_grade: |
+    You are grading a learner's SPOKEN {{targetLabel}} response to a roleplay scenario.
+
+    SCENARIO ({{nativeLabel}}): {{scenario}}
+    TARGET PATTERN ({{targetLabel}}): "{{targetText}}"
+    REUSABLE TEMPLATE: "{{templateText}}"
+    PATTERN'S PRAGMATIC FUNCTION ({{nativeLabel}}): {{explanation}}
+
+    Listen to the attached audio and judge:
+
+    1. transcript (string): what they said, in {{targetLabel}}.
+    2. usedTemplate (boolean): did they deploy the target template's reusable scaffolding? Be generous about surface form — "Could you" vs "Can you", contractions, different slot fills, mild paraphrase are ALL fine. What matters: is the FIXED scaffolding recognisable? An entirely different sentence that happens to share a couple words is FALSE.
+    3. fitsScene (boolean): given the pattern's pragmatic function, does their answer do the right kind of move for this scenario? E.g. if the pattern is "polite request to explain tradeoffs" and the scenario invites that move, an answer that asks for tradeoffs = TRUE; an answer that just expresses confusion or asks an unrelated question = FALSE.
+    4. naturalness (0.0–1.0): how fluent / idiomatic does it sound to a native speaker? Consider word choice, register, prosody, and rhythm of the audio (not just the words). 1.0 = native, 0.6 = understandable but a bit unnatural, 0.0 = robotic / wrong register.
+    5. feedback (string, in {{nativeLabel}}, ≤ 35 words): ONE concrete suggestion. If they nailed it, a one-line praise.
+
+    Return ONE JSON object — no markdown, no commentary:
+    { "transcript": string, "usedTemplate": boolean, "fitsScene": boolean, "naturalness": number, "feedback": string }
+
+  # Variables: targetLabel, nativeLabel, termsList (already comma-joined and quoted)
+  story: |
+    You're writing a short, fun story to help someone remember these {{targetLabel}} expressions: {{termsList}}.
+
+    Write the WHOLE story in {{targetLabel}}. Use every expression at least once, naturally. Keep it ~150 words. Light, playful tone, like a cute slice-of-life moment. No headings, no bullet points — just one flowing paragraph.
+
+    Then on a new line, output the marker "---" and below it write a smooth {{nativeLabel}} translation of the same story (also one paragraph).
+
+    Output nothing else.
