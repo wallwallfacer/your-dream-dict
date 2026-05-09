@@ -1,28 +1,41 @@
 #!/usr/bin/env bash
-# Print the current Cloudflare quick-tunnel URL for the running com.dreamdict.tunnel.
-# The URL is regenerated every time cloudflared restarts (quick-tunnel mode), so
-# this just greps the most recent one out of the LaunchAgent's stdout log.
+# Print the current Tailscale Funnel public URL.
 #
 # Usage:
 #   scripts/tunnel-url.sh         # print URL to stdout
 #   scripts/tunnel-url.sh -c      # also copy to clipboard (macOS pbcopy)
+#   scripts/tunnel-url.sh start   # start funnel in background
+#   scripts/tunnel-url.sh stop    # stop funnel
+#   scripts/tunnel-url.sh status  # show funnel status
 set -euo pipefail
 
-LOG="${HOME}/.dream-dict/tunnel.log"
-if [[ ! -f "$LOG" ]]; then
-  echo "tunnel log not found: $LOG" >&2
-  exit 1
-fi
+case "${1:-url}" in
+  start)
+    tailscale funnel --bg 3000
+    ;;
+  stop)
+    tailscale funnel --https=443 off
+    ;;
+  status)
+    tailscale funnel status
+    ;;
+  url|-c)
+    dns_name=$(tailscale status --json | python3 -c "import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))")
+    if [[ -z "$dns_name" ]]; then
+      echo "tailscale not connected" >&2
+      exit 1
+    fi
+    url="https://${dns_name}"
 
-url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$LOG" | tail -1 || true)
-if [[ -z "$url" ]]; then
-  echo "no tunnel URL found in $LOG" >&2
-  exit 1
-fi
-
-if [[ "${1:-}" == "-c" ]]; then
-  printf '%s' "$url" | pbcopy
-  echo "$url  (copied)"
-else
-  echo "$url"
-fi
+    if [[ "${1:-}" == "-c" ]]; then
+      printf '%s' "$url" | pbcopy
+      echo "$url  (copied)"
+    else
+      echo "$url"
+    fi
+    ;;
+  *)
+    echo "usage: $0 [url|-c|start|stop|status]" >&2
+    exit 2
+    ;;
+esac
