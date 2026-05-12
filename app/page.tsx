@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, RefreshCw } from "lucide-react";
 import { FeedCard, type FeedItem } from "@/components/FeedCard";
 import { BottomNav } from "@/components/BottomNav";
 import { ChatPanel } from "@/components/ChatPanel";
@@ -107,6 +107,7 @@ export default function FeedPage() {
   const restoredScrollRef = useRef(false);
 
   const loadInitial = useCallback(async () => {
+    setError(null);
     try {
       const now = Date.now();
       const [saved, recentSeen, due] = await Promise.all([
@@ -127,12 +128,27 @@ export default function FeedPage() {
           bumpRef(templatesRef.current, templateSkeleton(r.termSegments, r.term), r.lastSeenAt);
         });
 
-      const fresh = await fetchFresh(
-        from,
-        to,
-        topByRecency(seenRef.current, EXCLUDE_TOP_N),
-        topByRecency(templatesRef.current, EXCLUDE_TOP_N),
-      );
+      const reviewItems = due.map(reviewToItem);
+      reviewItems.forEach((it) => {
+        if (it.entry) prewarmReview(it.entry, it.to);
+      });
+
+      // Recommendations can be slow / flaky on mobile via tunneled proxies.
+      // If we already have reviews to show, surface them and treat the recs
+      // failure as a soft error so the feed isn't blank.
+      let fresh: string[] = [];
+      try {
+        fresh = await fetchFresh(
+          from,
+          to,
+          topByRecency(seenRef.current, EXCLUDE_TOP_N),
+          topByRecency(templatesRef.current, EXCLUDE_TOP_N),
+        );
+      } catch (e) {
+        if (reviewItems.length === 0) throw e;
+        console.warn("[feed] initial recommendations failed; showing reviews only", e);
+      }
+
       const freshItems: FeedItem[] = fresh.map((term) => ({
         query: term,
         from,
@@ -140,14 +156,10 @@ export default function FeedPage() {
         kind: "new",
         status: "loading",
       }));
-      const reviewItems = due.map(reviewToItem);
-      reviewItems.forEach((it) => {
-        if (it.entry) prewarmReview(it.entry, it.to);
-      });
       setItems(interleave(reviewItems, freshItems));
       setInitialized(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load feed");
+      setError(toErrorMessage(e));
     }
   }, [from, to, setItems, setInitialized]);
 
@@ -218,11 +230,14 @@ export default function FeedPage() {
     if (hydratingRef.current.has(index)) return;
     hydratingRef.current.add(index);
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const lookupRes = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: cur.query, from: cur.from, to: cur.to }),
+        signal: controller.signal,
       });
       if (!lookupRes.ok) {
         const errBody = await lookupRes.json().catch(() => ({}));
@@ -245,10 +260,13 @@ export default function FeedPage() {
       setItems((prev) =>
         prev.map((it, i) =>
           i === index
-            ? { ...it, status: "error" as const, error: e instanceof Error ? e.message : "load failed" }
+            ? { ...it, status: "error" as const, error: toErrorMessage(e) }
             : it,
         ),
       );
+    } finally {
+      clearTimeout(timer);
+      hydratingRef.current.delete(index);
     }
   }, [items, setItems]);
 
@@ -392,12 +410,21 @@ export default function FeedPage() {
         <div className="absolute inset-0 flex flex-col items-center justify-center text-cream gap-4 px-6 text-center">
           <div className="text-coral text-lg font-bold">Couldn&apos;t load the feed.</div>
           <div className="text-sm opacity-70">{error}</div>
-          <Link
-            href="/search"
-            className="inline-flex items-center gap-2 rounded-full bg-cream text-ink px-4 py-2 font-semibold"
-          >
-            <Search size={16} /> Try a manual lookup instead
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadInitial()}
+              className="inline-flex items-center gap-2 rounded-full bg-sunshine text-ink px-4 py-2 font-semibold"
+            >
+              <RefreshCw size={16} /> Try again
+            </button>
+            <Link
+              href="/search"
+              className="inline-flex items-center gap-2 rounded-full bg-cream text-ink px-4 py-2 font-semibold"
+            >
+              <Search size={16} /> Manual lookup
+            </Link>
+          </div>
         </div>
       )}
 
@@ -444,23 +471,44 @@ export default function FeedPage() {
   );
 }
 
+const FETCH_TIMEOUT_MS = 60_000;
+
+function toErrorMessage(e: unknown): string {
+  if (e instanceof DOMException && e.name === "AbortError") {
+    return "Took too long. Check your connection and try again.";
+  }
+  if (e instanceof TypeError) {
+    // Native "TypeError: Failed to fetch" (Chrome/Edge) etc. — connection
+    // never landed or was dropped before headers came back.
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  return e instanceof Error ? e.message : "Could not load feed";
+}
+
 async function fetchFresh(
   from: LangCode,
   to: LangCode,
   exclude: string[],
   excludeTemplates: string[],
 ): Promise<string[]> {
-  const res = await fetch("/api/recommendations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to, exclude, excludeTemplates, count: FETCH_BATCH }),
-  });
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    throw new Error(errBody.error ?? `Recommendations failed (${res.status})`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to, exclude, excludeTemplates, count: FETCH_BATCH }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error ?? `Recommendations failed (${res.status})`);
+    }
+    const data = (await res.json()) as { terms: string[] };
+    return data.terms;
+  } finally {
+    clearTimeout(timer);
   }
-  const data = (await res.json()) as { terms: string[] };
-  return data.terms;
 }
 
 function prewarmReview(entry: LookupEntry, to: LangCode) {
