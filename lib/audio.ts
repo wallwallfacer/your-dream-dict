@@ -3,6 +3,7 @@
 import { getAudio, putAudio } from "./db/notebook";
 import type { LangCode } from "./languages";
 import type { TermSegment } from "./types";
+import { withBasePath } from "./basePath";
 
 function hashKey(text: string, lang: LangCode): string {
   // Plain string key — IndexedDB handles long strings fine, and we don't need crypto strength.
@@ -26,7 +27,7 @@ export function headlineTtsText(entry: {
 const inflight = new Map<string, Promise<Blob>>();
 
 async function fetchTTS(text: string, lang: LangCode): Promise<Blob> {
-  const res = await fetch("/api/tts", {
+  const res = await fetch(withBasePath("/api/tts"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, lang }),

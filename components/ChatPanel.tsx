@@ -5,6 +5,7 @@ import { MessageCircle, Send, X, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LangCode } from "@/lib/languages";
 import type { LookupEntry } from "@/lib/types";
+import { withBasePath } from "@/lib/basePath";
 
 type Props = {
   entry: LookupEntry;
@@ -44,7 +45,7 @@ export function ChatPanel({ entry, query, from, to, forceOpen, onClose }: Props)
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(withBasePath("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

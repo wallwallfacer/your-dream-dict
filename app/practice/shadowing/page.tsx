@@ -9,6 +9,7 @@ import { useRecorder, type RecordingResult } from "@/lib/hooks/useRecorder";
 import { usePrefs } from "@/lib/prefs";
 import type { SavedEntry } from "@/lib/types";
 import { SegmentedText } from "@/components/SegmentedText";
+import { withBasePath } from "@/lib/basePath";
 
 const MAX_RECORD_MS = 10_000;
 
@@ -105,7 +106,7 @@ export default function ShadowingPage() {
       fd.append("targetText", current.data.term);
       fd.append("from", current.from);
       fd.append("to", current.to);
-      const res = await fetch("/api/practice/shadowing/grade", { method: "POST", body: fd });
+      const res = await fetch(withBasePath("/api/practice/shadowing/grade"), { method: "POST", body: fd });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Grade failed (${res.status})`);

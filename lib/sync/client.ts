@@ -2,6 +2,7 @@
 
 import { getDB, registerSyncHooks } from "../db/notebook";
 import type { SavedEntry, SeenRecord } from "../types";
+import { withBasePath } from "../basePath";
 
 const PUSH_DEBOUNCE_MS = 1500;
 const PULL_INTERVAL_MS = 60_000;
@@ -74,7 +75,7 @@ async function push(): Promise<void> {
       if (row) seenLog.push(row);
     }
 
-    const res = await fetch("/api/sync", {
+    const res = await fetch(withBasePath("/api/sync"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entries, seenLog }),
@@ -111,7 +112,7 @@ async function pull(): Promise<void> {
   pulling = true;
   try {
     const since = getLastPullAt();
-    const res = await fetch(`/api/sync?since=${since}`);
+    const res = await fetch(withBasePath(`/api/sync?since=${since}`));
     if (!res.ok) throw new Error(`pull failed: ${res.status}`);
     const data = (await res.json()) as PullResponse;
     await mergeIntoLocal(data);

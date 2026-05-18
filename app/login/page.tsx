@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { withBasePath } from "@/lib/basePath";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -11,7 +12,7 @@ function LoginForm() {
   return (
     <main className="min-h-dvh flex items-center justify-center px-6 bg-cream">
       <form
-        action="/api/auth"
+        action={withBasePath("/api/auth")}
         method="POST"
         className="w-full max-w-xs flex flex-col gap-3 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5"
       >

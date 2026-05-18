@@ -18,6 +18,7 @@ import { listDueReviews, recordReviewResult } from "@/lib/db/notebook";
 import { useRecorder, type RecordingResult } from "@/lib/hooks/useRecorder";
 import { usePrefs } from "@/lib/prefs";
 import type { SavedEntry } from "@/lib/types";
+import { withBasePath } from "@/lib/basePath";
 
 const MAX_RECORD_MS = 30_000;
 
@@ -91,7 +92,7 @@ export default function ScenarioPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/practice/scenario", {
+        const res = await fetch(withBasePath("/api/practice/scenario"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -163,7 +164,7 @@ export default function ScenarioPage() {
       fd.append("scenario", scenario);
       fd.append("from", current.from);
       fd.append("to", current.to);
-      const res = await fetch("/api/practice/scenario/grade", { method: "POST", body: fd });
+      const res = await fetch(withBasePath("/api/practice/scenario/grade"), { method: "POST", body: fd });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Grade failed (${res.status})`);

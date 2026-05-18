@@ -16,7 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dream Dict — your AI dictionary",
   description: "An AI dictionary that explains words like a friend would.",
-  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Dream Dict",

@@ -7,6 +7,7 @@ import { SpeakButton } from "@/components/SpeakButton";
 import { listEntries } from "@/lib/db/notebook";
 import type { SavedEntry } from "@/lib/types";
 import type { LangCode } from "@/lib/languages";
+import { withBasePath } from "@/lib/basePath";
 
 export default function StoryPage() {
   const [items, setItems] = useState<SavedEntry[] | null>(null);
@@ -34,7 +35,7 @@ export default function StoryPage() {
       const from = saved[0].from;
       const to = saved[0].to;
       const terms = saved.map((s) => s.data.term);
-      const res = await fetch("/api/story", {
+      const res = await fetch(withBasePath("/api/story"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ terms, from, to }),

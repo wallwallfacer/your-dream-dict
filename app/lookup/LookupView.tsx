@@ -13,6 +13,7 @@ import type { LookupEntry, SavedEntry } from "@/lib/types";
 import { entryId, getEntry, saveEntry, deleteEntry } from "@/lib/db/notebook";
 import { prewarmAudio, headlineTtsText } from "@/lib/audio";
 import { useFeedStore } from "@/lib/feedStore";
+import { withBasePath } from "@/lib/basePath";
 
 export default function LookupView() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function LookupView() {
 
       // 3) Cold path — call the LLM.
       try {
-        const res = await fetch("/api/lookup", {
+        const res = await fetch(withBasePath("/api/lookup"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query, from, to }),

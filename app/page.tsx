@@ -22,6 +22,7 @@ import { useFeedStore } from "@/lib/feedStore";
 import { templateSkeleton } from "@/lib/templates";
 import type { LookupEntry, SavedEntry } from "@/lib/types";
 import type { LangCode } from "@/lib/languages";
+import { withBasePath } from "@/lib/basePath";
 
 const HYDRATE_AHEAD = 2;
 const FETCH_BATCH = 10;
@@ -29,7 +30,7 @@ const TARGET_QUEUE = 10;
 const REFILL_THRESHOLD = 5;
 const REVIEW_LIMIT_INITIAL = 3;
 const REVIEW_LIMIT_REFILL = 2;
-const EXCLUDE_TOP_N = 100;
+const EXCLUDE_TOP_N = 500;
 
 // Recency-aware dedup: map key (lowercased term or template skeleton) → max
 // timestamp last seen. At fetch time we sort desc + slice the top N so the
@@ -233,7 +234,7 @@ export default function FeedPage() {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const lookupRes = await fetch("/api/lookup", {
+      const lookupRes = await fetch(withBasePath("/api/lookup"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: cur.query, from: cur.from, to: cur.to }),
@@ -494,7 +495,7 @@ async function fetchFresh(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch("/api/recommendations", {
+    const res = await fetch(withBasePath("/api/recommendations"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, exclude, excludeTemplates, count: FETCH_BATCH }),
