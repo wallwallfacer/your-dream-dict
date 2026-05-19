@@ -63,12 +63,16 @@ export async function POST(req: Request) {
   }
 
   const isHttps = origin.startsWith("https");
-  const cookiePath = BASE_PATH || "/";
+  // Cookie Path=/ (not BASE_PATH): some browsers (Safari iOS) silently drop
+  // SameSite=lax cookies on POST requests when Path is a strict prefix without
+  // trailing slash, even though RFC 6265 says the path matches. Path=/ avoids
+  // the ambiguity; cookie name is app-specific so it won't collide with
+  // sibling apps on the same domain.
   const cookieOpts = {
     httpOnly: true,
     secure: isHttps,
     sameSite: "lax" as const,
-    path: cookiePath,
+    path: "/",
     maxAge: 60 * 60 * 24 * 30,
   };
 
@@ -86,6 +90,6 @@ export async function POST(req: Request) {
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("dd_auth", "", { path: BASE_PATH || "/", maxAge: 0 });
+  res.cookies.set("dd_auth", "", { path: "/", maxAge: 0 });
   return res;
 }
