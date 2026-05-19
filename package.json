@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:tunnel": "npx concurrently --kill-others \"next dev\" \"wstunnel client -R tcp://8080:localhost:3000 -R tcp://8081:localhost:8000 wss://app.xingchendahai.org\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

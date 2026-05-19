@@ -1,41 +1,47 @@
 #!/usr/bin/env bash
-# Print the current Tailscale Funnel public URL.
+# Manage the shared wstunnel LaunchAgent that exposes both dream-dict and
+# papers-cool through the Azure VPS via WebSocket over HTTPS.
 #
 # Usage:
-#   scripts/tunnel-url.sh         # print URL to stdout
-#   scripts/tunnel-url.sh -c      # also copy to clipboard (macOS pbcopy)
-#   scripts/tunnel-url.sh start   # start funnel in background
-#   scripts/tunnel-url.sh stop    # stop funnel
-#   scripts/tunnel-url.sh status  # show funnel status
+#   scripts/tunnel-url.sh         # print public URL
+#   scripts/tunnel-url.sh -c      # copy URL to clipboard
+#   scripts/tunnel-url.sh start   # start tunnel LaunchAgent
+#   scripts/tunnel-url.sh stop    # stop tunnel LaunchAgent
+#   scripts/tunnel-url.sh status  # show tunnel status
 set -euo pipefail
+
+PUBLIC_URL="https://app.xingchendahai.org/dict"
+LABEL="com.shared.wstunnel"
+TARGET="gui/$(id -u)/${LABEL}"
+PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 
 case "${1:-url}" in
   start)
-    tailscale funnel --bg 3000
+    launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl kickstart "$TARGET"
+    sleep 2
+    "$0" status
     ;;
   stop)
-    tailscale funnel --https=443 off
+    launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null && echo "tunnel stopped" || echo "tunnel not running"
+    ;;
+  restart)
+    launchctl kickstart -k "$TARGET"
+    sleep 2
+    "$0" status
     ;;
   status)
-    tailscale funnel status
+    launchctl print "$TARGET" 2>/dev/null | grep -E "state|pid" | head -3 || echo "not loaded"
     ;;
   url|-c)
-    dns_name=$(tailscale status --json | python3 -c "import sys,json; print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))")
-    if [[ -z "$dns_name" ]]; then
-      echo "tailscale not connected" >&2
-      exit 1
-    fi
-    url="https://${dns_name}"
-
     if [[ "${1:-}" == "-c" ]]; then
-      printf '%s' "$url" | pbcopy
-      echo "$url  (copied)"
+      printf '%s' "$PUBLIC_URL" | pbcopy
+      echo "$PUBLIC_URL  (copied)"
     else
-      echo "$url"
+      echo "$PUBLIC_URL"
     fi
     ;;
   *)
-    echo "usage: $0 [url|-c|start|stop|status]" >&2
+    echo "usage: $0 [url|-c|start|stop|restart|status]" >&2
     exit 2
     ;;
 esac
