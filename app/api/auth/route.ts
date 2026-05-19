@@ -19,8 +19,6 @@ function getOrigin(req: Request): string {
 
 function detectProto(req: Request): string {
   if (req.headers.get("x-forwarded-proto") === "https") return "https";
-  const host = req.headers.get("host") || "";
-  if (host.endsWith(".ts.net") || host.endsWith(".tailscale.net")) return "https";
   if (new URL(req.url).protocol === "https:") return "https";
   return "http";
 }
