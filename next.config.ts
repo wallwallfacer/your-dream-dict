@@ -21,8 +21,15 @@ function normalizeBasePath(raw: string | undefined): string {
 
 const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH);
 
+// Staging build: `scripts/run-server.sh deploy` sets NEXT_BUILD_STAGING=1 so
+// `next build` writes to `.next-staging/` while the running prod server keeps
+// reading from `.next/`. After the build succeeds the script moves staging
+// into place and restarts. Without the env var distDir defaults to `.next`.
+const distDir = process.env.NEXT_BUILD_STAGING === "1" ? ".next-staging" : ".next";
+
 const nextConfig: NextConfig = {
   basePath: basePath || undefined,
+  distDir,
   turbopack: {
     root: path.resolve(__dirname),
   },

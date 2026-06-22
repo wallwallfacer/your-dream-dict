@@ -11,6 +11,27 @@ models:
   audio_grade: gpt-4o-audio-preview
   scenario_generate: gpt-4o
 
+# Pure-text routes go through lib/ai/text.ts which can dispatch to a local CLI
+# (claude / codex) running on a subscription instead of the OpenAI API token.
+# Image / TTS / audio_grade routes are NOT affected by this block — they keep
+# using the OpenAI SDK directly. Override the default with env
+# DREAM_DICT_TEXT_PROVIDER=claude|codex|openai. Set DREAM_DICT_TEXT_NO_FALLBACK=1
+# to disable the auto-fallback to the OpenAI SDK on CLI failure.
+text_provider:
+  default: codex
+  routes:
+    chat: codex
+    lookup: codex
+    story: codex
+    recommendations: codex
+    scenario_generate: codex
+  claude:
+    model: haiku            # alias accepted by `claude --model`
+    cli: claude             # path / name of the CLI binary
+  codex:
+    model: ""               # empty → use codex's account-default model
+    cli: codex
+
 sampling:
   lookup:
     temperature: 0.6

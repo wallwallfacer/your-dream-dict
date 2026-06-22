@@ -1,5 +1,5 @@
-import { ai } from "./client";
-import { MODELS, SAMPLING, renderPrompt } from "./config";
+import { renderPrompt } from "./config";
+import { callText } from "./text";
 import { lang, type LangCode } from "../languages";
 import type { LookupEntry, TermSegment } from "../types";
 
@@ -20,15 +20,7 @@ export async function callLookup(
   to: LangCode,
 ): Promise<LookupEntry> {
   const prompt = buildLookupPrompt(query, from, to);
-  const completion = await ai.chat.completions.create({
-    model: MODELS.chat,
-    messages: [{ role: "user", content: prompt }],
-    temperature: SAMPLING.lookup.temperature,
-    max_completion_tokens: SAMPLING.lookup.max_completion_tokens,
-    response_format: { type: "json_object" },
-  });
-
-  const text = completion.choices[0]?.message?.content?.trim() ?? "";
+  const text = await callText({ route: "lookup", user: prompt, jsonMode: true });
   return parseEntry(text);
 }
 

@@ -11,27 +11,60 @@ type Props = {
   index: number;
 };
 
-const ACCENTS = ["bg-sunshine", "bg-mint", "bg-sky", "bg-coral"];
-
 export function ExampleSentence({ example, toLang, index }: Props) {
-  const accent = ACCENTS[index % ACCENTS.length];
+  // First example highlighted as the dark inkwell card; the rest as paper cards
+  // with a thin editorial border. Keeps a clear visual hierarchy without
+  // resorting to the old multi-color cycle.
+  const featured = index === 0;
   return (
-    <div className={`rounded-3xl ${accent} p-4 shadow-sm`}>
+    <div
+      className={
+        featured
+          ? "rounded-2xl bg-ink-deep p-4"
+          : "rounded-2xl bg-paper border-[1.5px] border-line-soft p-4"
+      }
+    >
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-lg font-semibold text-ink leading-snug break-words">
+          {example.source && (
+            <p
+              className={`text-[10px] font-bold uppercase tracking-[0.12em] mb-1.5 ${
+                featured ? "text-vermilion-soft" : "text-vermilion"
+              }`}
+            >
+              {example.source}
+            </p>
+          )}
+          <p
+            className={`font-serif text-[clamp(1.125rem,3.5vw,1.4rem)] leading-[1.2] break-words ${
+              featured ? "text-paper" : "text-ink"
+            }`}
+          >
             <SegmentedText
               segments={example.targetSegments}
               fallback={example.target}
-              templateClass="text-coral"
+              templateClass={featured ? "text-vermilion-soft" : "text-vermilion"}
             />
           </p>
-          <p className="mt-1.5 text-sm text-ink/70 leading-relaxed">{example.native}</p>
-          {example.source && (
-            <p className="mt-1.5 text-xs text-ink/60 italic">— {example.source}</p>
-          )}
+          <p
+            className={`mt-1.5 text-[13px] leading-relaxed ${
+              featured ? "text-muted-soft" : "text-body"
+            }`}
+            style={{ fontFamily: "var(--font-cn)" }}
+          >
+            {example.native}
+          </p>
         </div>
-        <SpeakButton text={example.target} lang={toLang} size="md" className="bg-white" />
+        <SpeakButton
+          text={example.target}
+          lang={toLang}
+          size="sm"
+          className={
+            featured
+              ? "bg-paper/10 text-paper border-0"
+              : "bg-paper text-ink border-[1.5px] border-line"
+          }
+        />
       </div>
     </div>
   );

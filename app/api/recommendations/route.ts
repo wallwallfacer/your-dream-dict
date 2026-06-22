@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { ai } from "@/lib/ai/client";
-import { MODELS, SAMPLING, renderPrompt } from "@/lib/ai/config";
+import { renderPrompt } from "@/lib/ai/config";
+import { callText, extractJSON } from "@/lib/ai/text";
 import { lang, type LangCode } from "@/lib/languages";
 
 export const runtime = "nodejs";
@@ -17,6 +17,11 @@ type Body = {
 const EXCLUDE_CAP = 100;
 const EXCLUDE_TEMPLATES_CAP = 100;
 
+// Match the client: app/page.tsx stores seenRef keys as term.toLowerCase().
+function normalize(s: string): string {
+  return s.trim().toLowerCase();
+}
+
 export async function POST(req: Request) {
   let body: Body;
   try {
@@ -28,10 +33,15 @@ export async function POST(req: Request) {
   if (!from || !to) {
     return NextResponse.json({ error: "Missing from/to" }, { status: 400 });
   }
-  const n = Math.min(Math.max(count, 1), 12);
+  const n = Math.min(Math.max(count, 1), 20);
 
   const native = lang(from);
   const target = lang(to);
+
+  // The prompt only carries the most-recent 100; the FULL list is the hard
+  // filter applied after the model responds. LLMs ignore exclude lists often
+  // enough that prompt-only dedup leaks duplicates into the feed.
+  const excludeSet = new Set(exclude.map(normalize));
 
   const excludeBlock =
     exclude.length > 0
@@ -58,21 +68,26 @@ export async function POST(req: Request) {
   });
 
   try {
-    const completion = await ai.chat.completions.create({
-      model: MODELS.chat,
-      messages: [{ role: "user", content: prompt }],
-      temperature: SAMPLING.recommendations.temperature,
-      max_completion_tokens: SAMPLING.recommendations.max_completion_tokens,
-      response_format: { type: "json_object" },
+    const text = await callText({
+      route: "recommendations",
+      user: prompt,
+      jsonMode: true,
     });
-    const text = completion.choices[0]?.message?.content?.trim() ?? "{}";
-    const parsed = JSON.parse(text) as { terms?: unknown };
-    const terms = Array.isArray(parsed.terms)
+    const parsed = JSON.parse(extractJSON(text || "{}")) as { terms?: unknown };
+    const rawTerms = Array.isArray(parsed.terms)
       ? parsed.terms
           .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
           .map((t) => t.trim())
-          .slice(0, n)
       : [];
+    const batchSeen = new Set<string>();
+    const terms: string[] = [];
+    for (const t of rawTerms) {
+      const key = normalize(t);
+      if (excludeSet.has(key) || batchSeen.has(key)) continue;
+      batchSeen.add(key);
+      terms.push(t);
+      if (terms.length >= n) break;
+    }
     if (terms.length === 0) {
       return NextResponse.json({ error: "No recommendations returned" }, { status: 502 });
     }

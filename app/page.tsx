@@ -25,7 +25,7 @@ import type { LangCode } from "@/lib/languages";
 import { withBasePath } from "@/lib/basePath";
 
 const HYDRATE_AHEAD = 2;
-const FETCH_BATCH = 10;
+const FETCH_BATCH = 20;
 const TARGET_QUEUE = 10;
 const REFILL_THRESHOLD = 5;
 const REVIEW_LIMIT_INITIAL = 3;
@@ -399,29 +399,29 @@ export default function FeedPage() {
   const showEmpty = items.length === 0 && !error;
 
   return (
-    <div className="relative h-dvh w-screen bg-ink overflow-hidden">
+    <div className="relative h-dvh w-screen bg-paper overflow-hidden">
       {showEmpty && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-cream gap-3 px-6 text-center">
-          <Loader2 className="animate-spin" size={32} />
-          <span className="text-sm opacity-80">Picking some good ones for you…</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-ink gap-3 px-6 text-center">
+          <Loader2 className="animate-spin" size={28} />
+          <span className="text-sm text-muted">Picking some good ones for you…</span>
         </div>
       )}
 
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-cream gap-4 px-6 text-center">
-          <div className="text-coral text-lg font-bold">Couldn&apos;t load the feed.</div>
-          <div className="text-sm opacity-70">{error}</div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-ink gap-4 px-6 text-center">
+          <div className="font-serif text-2xl text-ink">Couldn&apos;t load the feed.</div>
+          <div className="text-sm text-muted">{error}</div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => void loadInitial()}
-              className="inline-flex items-center gap-2 rounded-full bg-sunshine text-ink px-4 py-2 font-semibold"
+              className="inline-flex items-center gap-2 rounded-full bg-vermilion text-white px-4 py-2 font-semibold text-sm"
             >
               <RefreshCw size={16} /> Try again
             </button>
             <Link
               href="/search"
-              className="inline-flex items-center gap-2 rounded-full bg-cream text-ink px-4 py-2 font-semibold"
+              className="inline-flex items-center gap-2 rounded-full bg-paper border-[1.5px] border-line text-ink px-4 py-2 font-semibold text-sm"
             >
               <Search size={16} /> Manual lookup
             </Link>

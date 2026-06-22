@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { ai } from "@/lib/ai/client";
-import { MODELS, SAMPLING, renderPrompt } from "@/lib/ai/config";
+import { renderPrompt } from "@/lib/ai/config";
+import { callText, extractJSON } from "@/lib/ai/text";
 import { lang, type LangCode } from "@/lib/languages";
 
 export const runtime = "nodejs";
@@ -37,15 +37,12 @@ export async function POST(req: Request) {
   });
 
   try {
-    const completion = await ai.chat.completions.create({
-      model: MODELS.scenario_generate,
-      messages: [{ role: "user", content: prompt }],
-      temperature: SAMPLING.scenario_generate.temperature,
-      max_completion_tokens: SAMPLING.scenario_generate.max_completion_tokens,
-      response_format: { type: "json_object" },
+    const text = await callText({
+      route: "scenario_generate",
+      user: prompt,
+      jsonMode: true,
     });
-    const text = completion.choices[0]?.message?.content?.trim() ?? "{}";
-    const parsed = JSON.parse(text) as { scenario?: unknown };
+    const parsed = JSON.parse(extractJSON(text || "{}")) as { scenario?: unknown };
     const scenario = typeof parsed.scenario === "string" ? parsed.scenario.trim() : "";
     if (!scenario) {
       return NextResponse.json({ error: "Empty scenario" }, { status: 502 });

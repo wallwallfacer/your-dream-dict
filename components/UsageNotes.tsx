@@ -11,32 +11,48 @@ type Props = {
 
 export function UsageNotes({ notes, related, from, to }: Props) {
   return (
-    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 space-y-4">
+    <section className="border-[1.5px] border-line rounded-2xl bg-paper p-5 space-y-5">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-ink/60">Vibe</h3>
-        <p className="mt-1.5 text-ink/90 leading-relaxed whitespace-pre-line">{notes}</p>
+        <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-vermilion">
+          Vibe · 语感
+        </h3>
+        <p
+          className="mt-2 text-body leading-[1.65] whitespace-pre-line text-[15px]"
+          style={{ fontFamily: "var(--font-cn)" }}
+        >
+          {notes}
+        </p>
       </div>
       {related.length > 0 && (
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-ink/60">Related</h3>
-          <ul className="mt-2 space-y-2">
+          <h3 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-vermilion">
+            Related · 关联
+          </h3>
+          <ul className="mt-2.5 space-y-2">
             {related.map((r, i) => (
               <li key={i}>
                 <Link
                   href={`/lookup?q=${encodeURIComponent(r.word)}&from=${from}&to=${to}`}
-                  className="block rounded-2xl bg-cream px-3 py-2 transition active:scale-[0.99]"
+                  className="block border-[1.5px] border-line-soft rounded-xl px-3.5 py-2.5 transition active:scale-[0.99] hover:border-line"
                 >
                   <div className="flex items-baseline gap-2">
-                    <span className="font-bold text-ink">{r.word}</span>
+                    <span className="font-serif text-[18px] text-ink leading-tight">{r.word}</span>
                     <span
-                      className={`text-[10px] uppercase font-semibold tracking-wider rounded-full px-2 py-0.5 ${
-                        r.kind === "synonym" ? "bg-mint" : "bg-coral text-cream"
+                      className={`text-[9px] font-extrabold uppercase tracking-[0.12em] rounded-md px-1.5 py-0.5 ${
+                        r.kind === "synonym"
+                          ? "border-[1.5px] border-tag-line text-muted"
+                          : "bg-vermilion text-white"
                       }`}
                     >
                       {r.kind}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-sm text-ink/70 leading-snug">{r.note}</p>
+                  <p
+                    className="mt-1 text-[13px] text-body leading-snug"
+                    style={{ fontFamily: "var(--font-cn)" }}
+                  >
+                    {r.note}
+                  </p>
                 </Link>
               </li>
             ))}
