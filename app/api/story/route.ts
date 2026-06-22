@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { ai } from "@/lib/ai/client";
-import { MODELS, SAMPLING, renderPrompt } from "@/lib/ai/config";
+import { renderPrompt } from "@/lib/ai/config";
+import { callText } from "@/lib/ai/text";
 import { lang, type LangCode } from "@/lib/languages";
 
 export const runtime = "nodejs";
@@ -35,13 +35,7 @@ export async function POST(req: Request) {
   });
 
   try {
-    const completion = await ai.chat.completions.create({
-      model: MODELS.chat,
-      messages: [{ role: "user", content: prompt }],
-      temperature: SAMPLING.story.temperature,
-      max_completion_tokens: SAMPLING.story.max_completion_tokens,
-    });
-    const text = completion.choices[0]?.message?.content?.trim() ?? "";
+    const text = await callText({ route: "story", user: prompt });
     const [storyTarget, storyNative] = text.split(/\n---+\n/);
     return NextResponse.json({
       target: (storyTarget ?? text).trim(),

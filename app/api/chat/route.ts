@@ -1,5 +1,5 @@
-import { ai } from "@/lib/ai/client";
-import { MODELS, SAMPLING, renderPrompt } from "@/lib/ai/config";
+import { renderPrompt } from "@/lib/ai/config";
+import { callTextStream } from "@/lib/ai/text";
 import { lang, type LangCode } from "@/lib/languages";
 import type { LookupEntry } from "@/lib/types";
 
@@ -38,24 +38,23 @@ export async function POST(req: Request) {
     entryJson: JSON.stringify(entry),
   });
 
-  const stream = await ai.chat.completions.create({
-    model: MODELS.chat,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...history.slice(-10),
-      { role: "user", content: question },
-    ],
-    temperature: SAMPLING.chat.temperature,
-    stream: true,
+  const userPrompt = composeUserPrompt(history.slice(-10), question);
+
+  const stream = callTextStream({
+    route: "chat",
+    system: systemPrompt,
+    user: userPrompt,
   });
 
   const encoder = new TextEncoder();
-  const readable = new ReadableStream({
+  const encoded = new ReadableStream({
     async start(controller) {
+      const reader = stream.getReader();
       try {
-        for await (const chunk of stream) {
-          const delta = chunk.choices[0]?.delta?.content ?? "";
-          if (delta) controller.enqueue(encoder.encode(delta));
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) controller.enqueue(encoder.encode(value));
         }
         controller.close();
       } catch (err) {
@@ -64,10 +63,27 @@ export async function POST(req: Request) {
     },
   });
 
-  return new Response(readable, {
+  return new Response(encoded, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
     },
   });
+}
+
+// CLI providers don't have a multi-turn message protocol, so we serialise
+// recent history into the user prompt as a labelled transcript. The current
+// question is the trailing entry the model should answer.
+function composeUserPrompt(
+  history: { role: "user" | "assistant"; content: string }[],
+  question: string,
+): string {
+  if (history.length === 0) return question;
+  const lines = history.map((m) => {
+    const tag = m.role === "user" ? "USER" : "ASSISTANT";
+    return `${tag}: ${m.content}`;
+  });
+  lines.push(`USER: ${question}`);
+  lines.push("ASSISTANT:");
+  return `Conversation so far:\n\n${lines.join("\n\n")}`;
 }

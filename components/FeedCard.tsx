@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ImageOff, Loader2, Heart, MessageCircle, Sparkles, BookHeart, ArrowUp } from "lucide-react";
+import { ImageOff, Loader2, Heart, MessageCircle, Bookmark, Sparkles, BookHeart, ArrowUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { SpeakButton } from "./SpeakButton";
 import type { LangCode } from "@/lib/languages";
@@ -34,7 +34,7 @@ type Props = {
 };
 
 export function FeedCard({ item, saved, onSave, onAsk, isFirst, isLast }: Props) {
-  const { entry, imageDataUrl, status, kind, to } = item;
+  const { entry, status, kind, to } = item;
   const exRef = useRef<HTMLDivElement>(null);
   const [exIdx, setExIdx] = useState(0);
 
@@ -50,210 +50,215 @@ export function FeedCard({ item, saved, onSave, onAsk, isFirst, isLast }: Props)
   }, [entry?.examples.length]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-ink">
-      {/* Image background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-sunshine via-coral to-berry">
-        {imageDataUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageDataUrl}
-            alt={entry?.term ?? ""}
-            className="h-full w-full object-cover"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/30" />
-      </div>
-
-      {/* Top tag */}
-      <div className="absolute top-0 inset-x-0 z-20 pt-safe">
-        <div className="flex justify-center pt-3">
-          <span
-            className={clsx(
-              "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold shadow",
-              kind === "review" ? "bg-sky text-cream" : "bg-sunshine text-ink",
-            )}
-          >
-            {kind === "review" ? (
-              <>
-                <BookHeart size={12} /> Review
-              </>
-            ) : (
-              <>
-                <Sparkles size={12} /> New for you
-              </>
-            )}
-          </span>
-        </div>
-      </div>
-
+    <div className="relative h-full w-full overflow-hidden bg-paper text-ink">
       {/* Loading overlay */}
       {status === "loading" && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-cream gap-2">
-          <Loader2 className="animate-spin" size={32} />
-          <span className="text-sm opacity-80">Cooking up something fun…</span>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-ink gap-2">
+          <Loader2 className="animate-spin" size={28} />
+          <span className="text-sm text-muted">Cooking up something fun…</span>
         </div>
       )}
 
       {/* Error overlay */}
       {status === "error" && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-cream gap-3 px-8 text-center">
-          <ImageOff size={32} />
-          <div className="text-sm opacity-80">{item.error || "Couldn't load this one"}</div>
-          <span className="text-xs opacity-60">Swipe up to skip</span>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-ink gap-3 px-8 text-center">
+          <ImageOff size={28} />
+          <div className="text-sm text-body">{item.error || "Couldn't load this one"}</div>
+          <span className="text-xs text-muted">Swipe up to skip</span>
         </div>
       )}
 
-      {/* Content: text + right rail in one flex row, both anchored above the bottom nav.
-          paddingBottom = nav pill (~62px) + breathing (~30px) + device safe-area, so content never bleeds under the nav on any phone. */}
       {status === "ready" && entry && (
-        <div
-          className="absolute inset-x-0 bottom-0 z-20 px-4 flex items-end gap-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }}
-        >
-          <div className="flex-1 min-w-0 text-cream">
-            <h2 className="text-[1.6rem] font-extrabold leading-[1.2] break-words drop-shadow-lg">
+        <>
+          {/* Main content column. Padding-bottom leaves room for the bottom nav (~62px pill + safe-area). */}
+          <div
+            className="absolute inset-0 z-10 flex flex-col px-6 pt-safe"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }}
+          >
+            {/* Top label row with editorial 1.5px bottom rule */}
+            <div className="flex items-center justify-between border-b-[1.5px] border-line pt-2 pb-2.5 flex-none">
+              <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-ink inline-flex items-center gap-1.5">
+                {kind === "review" ? (
+                  <>
+                    <BookHeart size={12} className="text-vermilion" /> Review · 复习
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} className="text-vermilion" /> New · 新词
+                  </>
+                )}
+              </span>
+              {isFirst && (
+                <motion.span
+                  initial={{ opacity: 0.6 }}
+                  animate={{ opacity: [0.6, 0.2, 0.6] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted-soft inline-flex items-center gap-1"
+                >
+                  swipe up <ArrowUp size={12} />
+                </motion.span>
+              )}
+              {isLast && (
+                <span className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted-soft">
+                  loading more…
+                </span>
+              )}
+            </div>
+
+            {/* Hero: serif headline (Instrument Serif) */}
+            <h1 className="font-serif font-normal text-[clamp(2rem,7vw,2.875rem)] leading-[1.05] tracking-[-0.01em] text-ink mt-5 break-words">
               <SegmentedText
                 segments={entry.termSegments}
                 fallback={entry.term}
-                templateClass="text-sunshine"
+                templateClass="text-vermilion"
                 slotMode="label"
-                slotClass="text-cream/65 italic"
+                slotClass="text-muted italic"
               />
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              {entry.partOfSpeech && (
-                <span className="rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-xs font-semibold">
-                  {entry.partOfSpeech}
-                </span>
-              )}
-              {entry.pronunciation && (
-                <span className="font-mono opacity-90 text-xs">/{entry.pronunciation}/</span>
-              )}
-              <SpeakButton text={headlineTtsText(entry)} lang={to} size="sm" />
+            </h1>
+
+            {/* Audio + IPA row */}
+            <div className="mt-4 flex items-center gap-3 flex-none">
+              <SpeakButton
+                text={headlineTtsText(entry)}
+                lang={to}
+                size="md"
+                className="bg-vermilion text-white border-0 shadow-none"
+              />
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 min-w-0">
+                {entry.partOfSpeech && (
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-soft">
+                    {entry.partOfSpeech}
+                  </span>
+                )}
+                {entry.pronunciation && (
+                  <span className="font-mono text-[13px] text-muted truncate">
+                    /{entry.pronunciation}/
+                  </span>
+                )}
+              </div>
             </div>
 
-            <p className="mt-3 text-[15px] leading-relaxed line-clamp-3 drop-shadow">
-              {entry.explanation}
-            </p>
+            {/* Hairline divider */}
+            <div className="h-px bg-line-soft my-5 flex-none" />
 
-            {entry.nativeEquivalents && entry.nativeEquivalents.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {entry.nativeEquivalents.map((eq, i) => (
-                  <span
-                    key={i}
-                    className="text-xs rounded-full bg-sunshine/90 text-ink px-2 py-0.5 font-semibold shadow"
-                  >
-                    {eq}
-                  </span>
-                ))}
+            {/* Meaning section */}
+            <div className="flex-none">
+              <div className="text-[11px] font-extrabold tracking-[0.12em] uppercase text-vermilion mb-2">
+                释义 · Meaning
               </div>
-            )}
+              <p className="text-[15px] leading-[1.65] text-body line-clamp-4" style={{ fontFamily: "var(--font-cn)" }}>
+                {entry.explanation}
+              </p>
 
-            {entry.examples.length > 0 && (
-              <div className="mt-3">
-                <div
-                  ref={exRef}
-                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
-                  style={{ scrollSnapType: "x mandatory" }}
-                >
-                  {entry.examples.map((ex, i) => (
-                    <div
+              {entry.nativeEquivalents && entry.nativeEquivalents.length > 0 && (
+                <div className="mt-3.5 flex flex-wrap gap-2">
+                  {entry.nativeEquivalents.map((eq, i) => (
+                    <span
                       key={i}
-                      className="snap-start shrink-0 w-full pr-2 last:pr-0"
+                      className="text-[13px] text-body border-[1.5px] border-tag-line rounded-lg px-3 py-1"
+                      style={{ fontFamily: "var(--font-cn)" }}
                     >
-                      <div className="rounded-2xl bg-black/35 backdrop-blur-md p-3 ring-1 ring-white/15">
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold leading-snug break-words">
-                              <SegmentedText
-                                segments={ex.targetSegments}
-                                fallback={ex.target}
-                                templateClass="text-sunshine"
-                              />
-                            </p>
-                            <p className="mt-1 text-sm opacity-85">{ex.native}</p>
-                            {ex.source && (
-                              <p className="mt-1.5 text-[11px] opacity-65 italic">
-                                — {ex.source}
-                              </p>
-                            )}
-                          </div>
-                          <SpeakButton
-                            text={ex.target}
-                            lang={to}
-                            size="sm"
-                            className="bg-white"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                      {eq}
+                    </span>
                   ))}
                 </div>
-                {entry.examples.length > 1 && (
-                  <div className="mt-2 flex justify-center gap-1.5">
-                    {entry.examples.map((_, i) => (
-                      <span
-                        key={i}
-                        className={clsx(
-                          "h-1.5 rounded-full transition-all",
-                          i === exIdx ? "w-5 bg-cream" : "w-1.5 bg-cream/40",
-                        )}
-                      />
+              )}
+            </div>
+
+            {/* Spacer pushes the dark "in context" card to the bottom of the column */}
+            <div className="flex-1 min-h-3" />
+
+            {/* In context — dark inkwell card with swipeable examples */}
+            {entry.examples.length > 0 && (
+              <div className="flex-none">
+                <div className="bg-ink-deep rounded-2xl px-4 py-4 max-w-[19rem]">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-vermilion-soft">
+                      In context{entry.examples[exIdx]?.source ? ` · ${entry.examples[exIdx].source}` : ""}
+                    </div>
+                    <SpeakButton
+                      text={entry.examples[exIdx]?.target ?? ""}
+                      lang={to}
+                      size="sm"
+                      className="bg-paper/10 text-paper border-0 shadow-none"
+                    />
+                  </div>
+                  <div
+                    ref={exRef}
+                    className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+                    style={{ scrollSnapType: "x mandatory" }}
+                  >
+                    {entry.examples.map((ex, i) => (
+                      <div key={i} className="snap-start shrink-0 w-full">
+                        <p className="font-serif text-[22px] leading-[1.2] text-paper break-words">
+                          <SegmentedText
+                            segments={ex.targetSegments}
+                            fallback={ex.target}
+                            templateClass="text-vermilion-soft"
+                          />
+                        </p>
+                        <p
+                          className="mt-1.5 text-[13px] leading-snug text-muted-soft"
+                          style={{ fontFamily: "var(--font-cn)" }}
+                        >
+                          {ex.native}
+                        </p>
+                      </div>
                     ))}
                   </div>
-                )}
+                  {entry.examples.length > 1 && (
+                    <div className="mt-2.5 flex gap-1.5">
+                      {entry.examples.map((_, i) => (
+                        <span
+                          key={i}
+                          className={clsx(
+                            "h-1 rounded-full transition-all",
+                            i === exIdx ? "w-5 bg-paper" : "w-1.5 bg-paper/40",
+                          )}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-3 shrink-0">
+          {/* Floating right action rail — cream circles with thin black border */}
+          <div
+            className="absolute right-4 z-20 flex flex-col items-center gap-4"
+            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 7.5rem)" }}
+          >
             <button
               type="button"
               onClick={onSave}
               aria-label={saved ? "Remove from notebook" : "Save to notebook"}
-              className={clsx(
-                "h-12 w-12 rounded-full flex items-center justify-center shadow-xl transition active:scale-90",
-                saved ? "bg-coral text-cream" : "bg-white text-ink",
-              )}
+              className="h-12 w-12 rounded-full bg-paper border-[1.5px] border-line flex items-center justify-center transition active:scale-90"
             >
-              <Heart size={20} fill={saved ? "currentColor" : "none"} />
+              <Heart
+                size={20}
+                className={saved ? "text-vermilion" : "text-vermilion"}
+                fill={saved ? "currentColor" : "none"}
+                strokeWidth={2}
+              />
             </button>
             <button
               type="button"
               onClick={onAsk}
               aria-label="Ask about this word"
-              className="h-12 w-12 rounded-full bg-berry text-cream flex items-center justify-center shadow-xl transition active:scale-90"
+              className="h-12 w-12 rounded-full bg-paper border-[1.5px] border-line flex items-center justify-center text-ink transition active:scale-90"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={20} strokeWidth={2} />
             </button>
             <Link
               href={`/lookup?q=${encodeURIComponent(item.query)}&from=${item.from}&to=${item.to}`}
               aria-label="See full entry"
-              className="h-12 w-12 rounded-full bg-white text-ink flex items-center justify-center shadow-xl transition active:scale-90 text-[10px] font-bold tracking-wide"
+              className="h-12 w-12 rounded-full bg-paper border-[1.5px] border-line flex items-center justify-center text-ink transition active:scale-90"
             >
-              MORE
+              <Bookmark size={20} strokeWidth={2} />
             </Link>
           </div>
-        </div>
-      )}
-
-      {/* Swipe hint (first card only) — sits above the rail/text block */}
-      {isFirst && status === "ready" && (
-        <motion.div
-          initial={{ opacity: 0.7 }}
-          animate={{ opacity: [0.7, 0.25, 0.7] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute left-1/2 top-20 -translate-x-1/2 z-30 text-cream/80 text-xs flex flex-col items-center gap-1 pointer-events-none"
-        >
-          <ArrowUp size={16} />
-          <span>swipe up</span>
-        </motion.div>
-      )}
-
-      {isLast && status === "ready" && (
-        <div className="absolute left-1/2 top-20 -translate-x-1/2 z-30 text-cream/70 text-xs pointer-events-none">
-          loading more…
-        </div>
+        </>
       )}
     </div>
   );

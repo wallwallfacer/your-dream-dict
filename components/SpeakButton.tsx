@@ -30,10 +30,10 @@ export function SpeakButton({ text, lang, size = "md", className }: Props) {
 
   const sizing = {
     sm: "h-8 w-8",
-    md: "h-10 w-10",
+    md: "h-11 w-11",
     lg: "h-12 w-12",
   }[size];
-  const iconSize = { sm: 16, md: 18, lg: 22 }[size];
+  const iconSize = { sm: 14, md: 18, lg: 22 }[size];
 
   return (
     <button
@@ -42,7 +42,7 @@ export function SpeakButton({ text, lang, size = "md", className }: Props) {
       disabled={busy}
       aria-label="Play pronunciation"
       className={clsx(
-        "inline-flex items-center justify-center rounded-full bg-sunshine text-ink shadow-sm transition active:scale-95",
+        "inline-flex items-center justify-center rounded-full bg-vermilion text-white transition active:scale-95",
         "hover:brightness-95 disabled:opacity-60",
         sizing,
         className,
