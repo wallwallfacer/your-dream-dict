@@ -61,11 +61,39 @@ function db(): DB {
       count INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_seen_updated ON seen_log(last_seen_at);
+
+    -- Shared, server-authoritative feed: one ordered stream + one cursor per
+    -- language pair (lang_key = "<from>-<to>"). Streamed to all browsers via SSE.
+    CREATE TABLE IF NOT EXISTS feed_items (
+      id TEXT PRIMARY KEY,
+      lang_key TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      query TEXT NOT NULL,
+      from_lang TEXT NOT NULL,
+      to_lang TEXT NOT NULL,
+      data_json TEXT NOT NULL,
+      image_data_url TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_feed_lang_seq ON feed_items(lang_key, seq);
+
+    CREATE TABLE IF NOT EXISTS feed_cursor (
+      lang_key TEXT PRIMARY KEY,
+      active_seq INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   ensureColumn(handle, "entries", "last_reviewed_at", "INTEGER");
   ensureColumn(handle, "entries", "review_count", "INTEGER");
   _db = handle;
   return _db;
+}
+
+// Shared accessor for the single in-process SQLite handle (same WAL connection),
+// used by the feed modules in lib/feed/*.
+export function getDb(): DB {
+  return db();
 }
 
 type PragmaColumn = { name: string };

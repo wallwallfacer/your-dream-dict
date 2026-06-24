@@ -1,56 +1,50 @@
 "use client";
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import type { FeedItem } from "@/components/FeedCard";
 
+// A feed card plus its server-assigned sequence number. The server feed is the
+// source of truth now, so this store is in-memory only (no persistence) — items
+// are (re)hydrated from the SSE snapshot on every mount.
+export type ClientFeedItem = FeedItem & { seq: number };
+
 type FeedState = {
-  items: FeedItem[];
-  activeIdx: number;
-  initialized: boolean;
   langKey: string;
-  setItems: (updater: FeedItem[] | ((prev: FeedItem[]) => FeedItem[])) => void;
-  setActiveIdx: (idx: number) => void;
-  setInitialized: (v: boolean) => void;
+  items: ClientFeedItem[];
+  activeIdx: number;
+  // Cursor pushed by the server (driver tab). Follower tabs scroll to it.
+  remoteCursorSeq: number | null;
+
   resetFor: (langKey: string) => void;
+  mergeItems: (incoming: ClientFeedItem[]) => void;
+  setActiveIdx: (idx: number) => void;
+  setRemoteCursor: (seq: number) => void;
 };
 
-export const useFeedStore = create<FeedState>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      activeIdx: 0,
-      initialized: false,
-      langKey: "",
-      setItems: (updater) =>
-        set({
-          items: typeof updater === "function" ? updater(get().items) : updater,
-        }),
-      setActiveIdx: (idx) => set({ activeIdx: idx }),
-      setInitialized: (v) => set({ initialized: v }),
-      resetFor: (langKey) =>
-        set({ items: [], activeIdx: 0, initialized: false, langKey }),
-    }),
-    {
-      name: "dream-dict-feed",
-      storage: createJSONStorage(() => localStorage),
-      skipHydration: true,
-      // Only persist data fields; sanitize transient per-card UI state.
-      partialize: (s) => ({
-        items: s.items.map((it) => ({
-          query: it.query,
-          from: it.from,
-          to: it.to,
-          kind: it.kind,
-          entry: it.entry,
-          imageDataUrl: it.imageDataUrl,
-          // Reload anything stuck loading/error rather than leaving it broken.
-          status: it.status === "ready" ? ("ready" as const) : ("loading" as const),
-        })),
-        activeIdx: s.activeIdx,
-        initialized: s.initialized,
-        langKey: s.langKey,
-      }),
-    },
-  ),
-);
+export const useFeedStore = create<FeedState>()((set, get) => ({
+  langKey: "",
+  items: [],
+  activeIdx: 0,
+  remoteCursorSeq: null,
+
+  resetFor: (langKey) =>
+    set({ langKey, items: [], activeIdx: 0, remoteCursorSeq: null }),
+
+  // Append items we don't already have (dedupe by seq), keep sorted by seq.
+  mergeItems: (incoming) => {
+    if (incoming.length === 0) return;
+    const seen = new Set(get().items.map((it) => it.seq));
+    const fresh = incoming.filter((it) => !seen.has(it.seq));
+    if (fresh.length === 0) return;
+    const merged = [...get().items, ...fresh].sort((a, b) => a.seq - b.seq);
+    set({ items: merged });
+  },
+
+  setActiveIdx: (idx) => set({ activeIdx: idx }),
+  setRemoteCursor: (seq) => set({ remoteCursorSeq: seq }),
+}));
+
+// Highest seq we currently hold — used as the SSE reconnect cursor.
+export function lastSeqOf(items: ClientFeedItem[]): number {
+  return items.length > 0 ? items[items.length - 1].seq : 0;
+}
