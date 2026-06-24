@@ -117,9 +117,7 @@ export async function putAudio(hash: string, blob: Blob): Promise<void> {
   await db.put("audioCache", { hash, blob, createdAt: Date.now() });
 }
 
-export function entryId(query: string, from: string, to: string): string {
-  return `${from}->${to}::${query.trim().toLowerCase()}`;
-}
+export { entryId } from "../entryId";
 
 type RecordSeenInput = Pick<SeenRecord, "id" | "query" | "from" | "to" | "term" | "termSegments">;
 
